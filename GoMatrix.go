@@ -6,28 +6,30 @@ import (
 	"net/http"
 )
 
-// HandlerFunc定义使用的请求处理程序
-type HandlerFunc func(http.ResponseWriter, *http.Request)
+// HandlerFunc定义使用的请求处理程序，替换成上下文
+
+type HandlerFunc func(c *Context)
 
 // 引擎实现ServeHTTP接口
+
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 // 初始化引擎
+
 func New() *Engine {
-	return &Engine{router: make(map[string]HandlerFunc)}
+	return &Engine{router: newRouter()}
 }
 
 
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	key := method + "-" + pattern
 	log.Printf("Route %4s - %s", method, pattern)
-	engine.router[key] = handler
+	engine.router.addRoute(method, pattern, handler)
 }
 
 // GET定义添加GET请求的方法
-func (engine *Engine)GET(pattern string, handler HandlerFunc) {
+func (engine *Engine) GET(pattern string, handler HandlerFunc) {
 	engine.addRoute("GET", pattern, handler)
 }
 
@@ -47,15 +49,12 @@ func (engine *Engine)DELETE(pattern string, handler HandlerFunc) {
 
 // 定义启动http服务器的方法
 func (engine *Engine) Run(addr string) (err error) {
+	fmt.Printf("ListenAndServe %s \n", addr)
 	return http.ListenAndServe(addr, engine)
 }
 
 // 实现Handler接口
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	key := req.Method + "-" + req.URL.Path
-	if handler, ok := engine.router[key]; ok {
-		handler(w, req)
-	} else {
-		_, _ = fmt.Fprintf(w, "404 NOT FOUND: %s\n", req.URL)
-	}
+	c := newContext(w, req)
+	engine.router.handle(c)
 }
