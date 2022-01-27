@@ -1,7 +1,6 @@
 package GoMatrix
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -49,7 +48,7 @@ func (engine *Engine)DELETE(pattern string, handler HandlerFunc) {
 
 // 定义启动http服务器的方法
 func (engine *Engine) Run(addr string) (err error) {
-	fmt.Printf("ListenAndServe %s \n", addr)
+	log.Printf("ListenAndServe %s \n", addr)
 	return http.ListenAndServe(addr, engine)
 }
 
