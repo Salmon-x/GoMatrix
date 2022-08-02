@@ -7,10 +7,10 @@ import (
 // 树节点需要存储的信息
 
 type node struct {
-	pattern  string // 待匹配路由，例如 /p/:lang
-	part     string // 路由中的一部分，例如 :lang
+	pattern  string  // 待匹配路由，例如 /p/:lang
+	part     string  // 路由中的一部分，例如 :lang
 	children []*node // 子节点
-	isWild   bool // 是否精确匹配，part 含有 : 或 * 时为true
+	isWild   bool    // 是否精确匹配，part 含有 : 或 * 时为true
 }
 
 // 第一个匹配成功的节点，用于插入
@@ -22,7 +22,6 @@ func (n *node) matchChild(part string) *node {
 	}
 	return nil
 }
-
 
 // 所有匹配成功的节点，用于查找
 func (n *node) matchChildren(part string) []*node {
@@ -54,7 +53,7 @@ func (n *node) insert(pattern string, parts []string, height int) {
 	child.insert(pattern, parts, height+1)
 }
 
-
+// TODO 改成循环查询，人工建堆栈改良循环
 func (n *node) search(parts []string, height int) *node {
 	// 解析到最后一层或者是匹配到*号，则认为该节点是最子节点
 	if len(parts) == height || strings.HasPrefix(n.part, "*") {

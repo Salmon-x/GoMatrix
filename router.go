@@ -7,6 +7,7 @@ import (
 
 // 抽离router
 type router struct {
+	// 路由树
 	roots    map[string]*node
 	handlers map[string]HandlerFunc
 }
@@ -35,19 +36,21 @@ func parsePattern(pattern string) []string {
 }
 
 func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
+	assert1(pattern[0] == '/', "path must begin with '/'")
+	assert1(method != "", "HTTP method can not be empty")
+
 	parts := parsePattern(pattern)
 	key := method + "-" + pattern
 	// 查询该方法路由树
 	_, ok := r.roots[method]
 	if !ok {
 		// 如果没有该树，则新建一个
-		r.roots[method] = &node{}
+		r.roots[method] = new(node)
 	}
 	// 向树内插入路由
 	r.roots[method].insert(pattern, parts, 0)
 	r.handlers[key] = handler
 }
-
 
 func (r *router) getRoute(method string, path string) (*node, map[string]string) {
 	searchParts := parsePattern(path)
@@ -59,7 +62,6 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 	}
 	// 搜索路由
 	n := root.search(searchParts, 0)
-	//fmt.Println(n) // &{/func/:cid :cid [] true}
 	if n != nil {
 		parts := parsePattern(n.pattern)
 		for index, part := range parts {
@@ -67,9 +69,8 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 			if part[0] == ':' {
 				// 将值赋值到params
 				params[part[1:]] = searchParts[index]
-			}
-			// 如果*开头并且长度大于1，则这个节点的值赋值到params，并停止循环
-			if part[0] == '*' && len(part) > 1 {
+			} else if part[0] == '*' && len(part) > 1 {
+				// 如果*开头并且长度大于1，则这个节点的值赋值到params，并停止循环
 				params[part[1:]] = strings.Join(searchParts[index:], "/")
 				break
 			}
@@ -79,7 +80,6 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 
 	return nil, nil
 }
-
 
 func (r *router) handle(c *Context) {
 	n, params := r.getRoute(c.Method, c.Path)
@@ -91,4 +91,3 @@ func (r *router) handle(c *Context) {
 		c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
 	}
 }
-
