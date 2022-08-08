@@ -1,7 +1,9 @@
 package GoMatrix
 
 import (
+	"golang.org/x/net/netutil"
 	"log"
+	"net"
 	"net/http"
 )
 
@@ -15,6 +17,11 @@ type Engine struct {
 	*RouterGroup
 	router *router
 	groups []*RouterGroup
+	// 地址升级
+	serverIp string
+	serverPort string
+	// 限流，最大连接数
+	maxConn int
 }
 
 type RouterGroup struct {
@@ -26,8 +33,13 @@ type RouterGroup struct {
 
 // 初始化引擎
 
-func New() *Engine {
-	engine := &Engine{router: newRouter()}
+func New(serverIp,serverPort string, maxConn int) *Engine {
+	engine := &Engine{
+		router: newRouter(),
+		maxConn: maxConn,
+		serverIp: serverIp,
+		serverPort: serverPort,
+	}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
 	return engine
@@ -53,9 +65,16 @@ func (group *RouterGroup) DELETE(pattern string, handler HandlerFunc) {
 }
 
 // 定义启动http服务器的方法
-func (engine *Engine) Run(addr string) (err error) {
-	log.Printf("ListenAndServe %s \n", addr)
-	return http.ListenAndServe(addr, engine)
+func (engine *Engine) Run() (err error) {
+	var listener net.Listener
+	log.Printf("start server on host %s port:%s ,workers:%d\n", engine.serverIp, engine.serverPort, engine.maxConn)
+	listener, err = net.Listen("tcp", ":"+engine.serverPort)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	listener = netutil.LimitListener(listener, engine.maxConn)
+	return http.Serve(listener, engine)
 }
 
 // 实现Handler接口

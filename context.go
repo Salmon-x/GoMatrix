@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path/filepath"
 )
 
 type H map[string]interface{}
+
+const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 
 type Context struct {
 	// 原对象
@@ -94,4 +98,39 @@ func (c *Context) HTML(code int, html string) {
 func (c *Context) Param(key string) string {
 	value, _ := c.Params[key]
 	return value
+}
+
+func (c *Context) Download(file string, filename ...string) {
+	var (
+		fName string
+		err error
+	)
+	c.SetHeader("Content-Description", "File Transfer")
+	c.SetHeader("Content-Transfer-Encoding", "binary")
+	c.SetHeader("Expires", "0")
+	c.SetHeader("Cache-Control", "must-revalidate")
+	c.SetHeader("Pragma", "public")
+	c.SetHeader("Accept-Ranges", "bytes")
+	c.SetHeader("Content-Type", "application/octet-stream")
+	if err != nil {
+		http.ServeFile(c.Writer, c.Req, file)
+		return
+	}
+	if len(filename) > 0 && filename[0] != "" {
+		fName = filename[0]
+	} else {
+		fName = filepath.Base(file)
+	}
+	fn := url.PathEscape(fName)
+	if fName == fn {
+		fn = "filename=" + fn
+	} else {
+		fn = "filename=" + fName + "; filename*=utf-8''" + fn
+	}
+	c.SetHeader("Content-Disposition", "attachment; "+fn)
+	c.ServeFile(file)
+}
+
+func (c *Context)GetHeader(key string) string {
+	return c.Req.Header.Get(key)
 }
