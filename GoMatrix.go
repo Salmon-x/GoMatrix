@@ -14,6 +14,7 @@ type HandlerFunc func(c *Context)
 // 引擎实现ServeHTTP接口
 
 type Engine struct {
+	// 继承group的功能，之后都使用group来进行路由操作
 	*RouterGroup
 	router *router
 	groups []*RouterGroup
@@ -24,12 +25,6 @@ type Engine struct {
 	maxConn int
 }
 
-type RouterGroup struct {
-	prefix      string
-	middlewares []HandlerFunc
-	parent      *RouterGroup
-	engine      *Engine
-}
 
 // 初始化引擎
 
@@ -83,19 +78,3 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	engine.router.handle(c)
 }
 
-func (group *RouterGroup) Group(prefix string) *RouterGroup {
-	engine := group.engine
-	newGroup := &RouterGroup{
-		prefix: group.prefix + prefix,
-		parent: group,
-		engine: engine,
-	}
-	engine.groups = append(engine.groups, newGroup)
-	return newGroup
-}
-
-func (group *RouterGroup) addRoute(method string, comp string, handler HandlerFunc) {
-	pattern := group.prefix + comp
-	log.Printf("Route %4s - %s", method, pattern)
-	group.engine.router.addRoute(method, pattern, handler)
-}
