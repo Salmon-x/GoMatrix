@@ -27,6 +27,11 @@ type Engine struct {
 
 	// 池优化
 	pool sync.Pool
+
+	// https支持
+	isSsl bool
+	crt   string
+	key   string
 }
 
 // 初始化引擎
@@ -37,6 +42,24 @@ func New(serverIp, serverPort string, maxConn int) *Engine {
 		maxConn:    maxConn,
 		serverIp:   serverIp,
 		serverPort: serverPort,
+	}
+	engine.RouterGroup = &RouterGroup{engine: engine}
+	engine.groups = []*RouterGroup{engine.RouterGroup}
+	engine.pool.New = func() interface{} {
+		return engine.allocateContext()
+	}
+	return engine
+}
+
+func SslNew(serverIp, serverPort string, maxConn int, crt, key string) *Engine {
+	engine := &Engine{
+		router:     newRouter(),
+		maxConn:    maxConn,
+		serverIp:   serverIp,
+		serverPort: serverPort,
+		isSsl:      true,
+		crt:        crt,
+		key:        key,
 	}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
@@ -96,7 +119,11 @@ func (engine *Engine) Run() (err error) {
 	}
 	defer listener.Close()
 	listener = netutil.LimitListener(listener, engine.maxConn)
-	return http.Serve(listener, engine)
+	if engine.isSsl {
+		return http.ServeTLS(listener, engine, engine.crt, engine.key)
+	} else {
+		return http.Serve(listener, engine)
+	}
 }
 
 // 实现Handler接口
