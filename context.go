@@ -22,16 +22,14 @@ type Context struct {
 	Params map[string]string
 	// 响应信息
 	StatusCode int
+	engine     *Engine
 }
 
-// 生成新的上下文
-func newContext(w http.ResponseWriter, req *http.Request) *Context {
-	return &Context{
-		Writer: w,
-		Req:    req,
-		Path:   req.URL.Path,
-		Method: req.Method,
-	}
+func (c *Context) newContext(w http.ResponseWriter, req *http.Request) {
+	c.Writer = w
+	c.Req = req
+	c.Path = req.URL.Path
+	c.Method = req.Method
 }
 
 // Form参数
@@ -103,7 +101,7 @@ func (c *Context) Param(key string) string {
 func (c *Context) Download(file string, filename ...string) {
 	var (
 		fName string
-		err error
+		err   error
 	)
 	c.SetHeader("Content-Description", "File Transfer")
 	c.SetHeader("Content-Transfer-Encoding", "binary")
@@ -131,6 +129,6 @@ func (c *Context) Download(file string, filename ...string) {
 	c.ServeFile(file)
 }
 
-func (c *Context)GetHeader(key string) string {
+func (c *Context) GetHeader(key string) string {
 	return c.Req.Header.Get(key)
 }

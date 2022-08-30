@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 )
 
 // HandlerFunc定义使用的请求处理程序，替换成上下文
@@ -19,25 +20,35 @@ type Engine struct {
 	router *router
 	groups []*RouterGroup
 	// 地址升级
-	serverIp string
+	serverIp   string
 	serverPort string
 	// 限流，最大连接数
 	maxConn int
-}
 
+	// 池优化
+	pool sync.Pool
+}
 
 // 初始化引擎
 
-func New(serverIp,serverPort string, maxConn int) *Engine {
+func New(serverIp, serverPort string, maxConn int) *Engine {
 	engine := &Engine{
-		router: newRouter(),
-		maxConn: maxConn,
-		serverIp: serverIp,
+		router:     newRouter(),
+		maxConn:    maxConn,
+		serverIp:   serverIp,
 		serverPort: serverPort,
 	}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
+	engine.pool.New = func() interface{} {
+		return engine.allocateContext()
+	}
 	return engine
+}
+
+// 分配池：当池中没有对象，则新建一个初始对象
+func (engine *Engine) allocateContext() *Context {
+	return &Context{engine: engine}
 }
 
 // GET定义添加GET请求的方法
@@ -59,6 +70,22 @@ func (group *RouterGroup) DELETE(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodDelete, pattern, handler)
 }
 
+func (group *RouterGroup) PATCH(pattern string, handler HandlerFunc) {
+	group.addRoute(http.MethodPatch, pattern, handler)
+}
+
+func (group *RouterGroup) CONNECT(pattern string, handler HandlerFunc) {
+	group.addRoute(http.MethodConnect, pattern, handler)
+}
+
+func (group *RouterGroup) OPTIONS(pattern string, handler HandlerFunc) {
+	group.addRoute(http.MethodOptions, pattern, handler)
+}
+
+func (group *RouterGroup) TRACE(pattern string, handler HandlerFunc) {
+	group.addRoute(http.MethodTrace, pattern, handler)
+}
+
 // 定义启动http服务器的方法
 func (engine *Engine) Run() (err error) {
 	var listener net.Listener
@@ -74,7 +101,9 @@ func (engine *Engine) Run() (err error) {
 
 // 实现Handler接口
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	c := newContext(w, req)
+	c := engine.pool.Get().(*Context)
+	// 初始化上下文
+	c.newContext(w, req)
 	engine.router.handle(c)
+	engine.pool.Put(c)
 }
-
