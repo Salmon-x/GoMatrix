@@ -31,12 +31,11 @@ var htmlReplacer = strings.NewReplacer(
 )
 var errNoOverlap = errors.New("invalid range: failed to overlap")
 
-
 type (
-	Dir string
-	condResult int
-	dirEntryDirs []fs.DirEntry
-	fileInfoDirs []fs.FileInfo
+	Dir            string
+	condResult     int
+	dirEntryDirs   []fs.DirEntry
+	fileInfoDirs   []fs.FileInfo
 	countingWriter int64
 )
 
@@ -66,7 +65,6 @@ func (d fileInfoDirs) len() int          { return len(d) }
 func (d fileInfoDirs) isDir(i int) bool  { return d[i].IsDir() }
 func (d fileInfoDirs) name(i int) string { return d[i].Name() }
 
-
 func (d Dir) Open(name string) (http.File, error) {
 	if filepath.Separator != '/' && strings.ContainsRune(name, filepath.Separator) {
 		return nil, errors.New("http: invalid character in file path")
@@ -83,8 +81,8 @@ func (d Dir) Open(name string) (http.File, error) {
 	return f, nil
 }
 
-func (c *Context)ServeFile(name string)  {
-	if containsDotDot(c.Req.URL.Path) {
+func (c *Context) ServeFile(name string) {
+	if containsDotDot(c.Path) {
 		http.Error(c.Writer, "invalid URL path", http.StatusBadRequest)
 		return
 	}
@@ -92,16 +90,16 @@ func (c *Context)ServeFile(name string)  {
 	c.serveFile(Dir(dir), file, false)
 }
 
-func (c *Context)serveFile(fs http.FileSystem, name string, redirect bool) {
+func (c *Context) serveFile(fs http.FileSystem, name string, redirect bool) {
 	const indexPage = "/index.html"
-	if strings.HasSuffix(c.Req.URL.Path, indexPage) {
+	if strings.HasSuffix(c.Path, indexPage) {
 		c.localRedirect("./")
 		return
 	}
 	f, err := fs.Open(name)
 	if err != nil {
 		msg, code := toHTTPError(err)
-		http.Error(c.Writer,msg,code)
+		http.Error(c.Writer, msg, code)
 		return
 	}
 	defer f.Close()
@@ -113,23 +111,23 @@ func (c *Context)serveFile(fs http.FileSystem, name string, redirect bool) {
 	}
 
 	if redirect {
-		url := c.Req.URL.Path
+		url := c.Path
 		if d.IsDir() {
 			if url[len(url)-1] != '/' {
-				c.localRedirect(path.Base(url)+"/")
+				c.localRedirect(path.Base(url) + "/")
 				return
 			}
 		} else {
 			if url[len(url)-1] == '/' {
-				c.localRedirect("../"+path.Base(url))
+				c.localRedirect("../" + path.Base(url))
 				return
 			}
 		}
 	}
 	if d.IsDir() {
-		url := c.Req.URL.Path
+		url := c.Path
 		if url == "" || url[len(url)-1] != '/' {
-			c.localRedirect(path.Base(url)+"/")
+			c.localRedirect(path.Base(url) + "/")
 			return
 		}
 
@@ -159,7 +157,7 @@ func (c *Context)serveFile(fs http.FileSystem, name string, redirect bool) {
 	c.serveContent(sizeFunc, f, d.Name(), d.ModTime())
 }
 
-func (c *Context)localRedirect(newPath string) {
+func (c *Context) localRedirect(newPath string) {
 	if q := c.Req.URL.RawQuery; q != "" {
 		newPath += "?" + q
 	}
@@ -167,7 +165,7 @@ func (c *Context)localRedirect(newPath string) {
 	c.Status(http.StatusMovedPermanently)
 }
 
-func (c *Context)serveContent(sizeFunc func() (int64, error), content io.ReadSeeker, name string, modtime time.Time,) {
+func (c *Context) serveContent(sizeFunc func() (int64, error), content io.ReadSeeker, name string, modtime time.Time) {
 	c.setLastModified(modtime)
 	done, rangeReq := c.checkPreconditions(modtime)
 	if done {
@@ -256,7 +254,7 @@ func (c *Context)serveContent(sizeFunc func() (int64, error), content io.ReadSee
 		}
 	}
 	c.Status(code)
-	if c.Req.Method != "HEAD" {
+	if c.Method != "HEAD" {
 		io.CopyN(c.Writer, sendContent, sendSize)
 	}
 }
@@ -326,7 +324,7 @@ func parseRange(s string, size int64) ([]httpRange, error) {
 	return ranges, nil
 }
 
-func (c *Context)setLastModified(modtime time.Time) {
+func (c *Context) setLastModified(modtime time.Time) {
 	if !isZeroTime(modtime) {
 		c.SetHeader("Last-Modified", modtime.UTC().Format(TimeFormat))
 	}
@@ -351,8 +349,8 @@ func containsDotDot(v string) bool {
 	return false
 }
 
-func (c *Context)checkIfModifiedSince(modtime time.Time) condResult {
-	if c.Req.Method != "GET" && c.Req.Method != "HEAD" {
+func (c *Context) checkIfModifiedSince(modtime time.Time) condResult {
+	if c.Method != "GET" && c.Method != "HEAD" {
 		return condNone
 	}
 	ims := c.GetHeader("If-Modified-Since")
@@ -370,7 +368,7 @@ func (c *Context)checkIfModifiedSince(modtime time.Time) condResult {
 	return condTrue
 }
 
-func (c *Context)writeNotModified() {
+func (c *Context) writeNotModified() {
 	h := c.Writer.Header()
 	delete(h, "Content-Type")
 	delete(h, "Content-Length")
@@ -389,7 +387,7 @@ func logf(r *http.Request, format string, args ...interface{}) {
 	}
 }
 
-func (c *Context)dirList(f http.File) {
+func (c *Context) dirList(f http.File) {
 	var dirs anyDirs
 	var err error
 	if d, ok := f.(fs.ReadDirFile); ok {
@@ -422,7 +420,7 @@ func (c *Context)dirList(f http.File) {
 	fmt.Fprintf(c.Writer, "</pre>\n")
 }
 
-func (c *Context)checkPreconditions(modtime time.Time) (done bool, rangeHeader string) {
+func (c *Context) checkPreconditions(modtime time.Time) (done bool, rangeHeader string) {
 	rangeHeader = c.GetHeader("Range")
 	if rangeHeader != "" && c.checkIfRange(modtime) == condFalse {
 		rangeHeader = ""
@@ -456,8 +454,8 @@ func etagStrongMatch(a, b string) bool {
 	return a == b && a != "" && a[0] == '"'
 }
 
-func (c *Context)checkIfRange(modtime time.Time) condResult {
-	if c.Req.Method != "GET" && c.Req.Method != "HEAD" {
+func (c *Context) checkIfRange(modtime time.Time) condResult {
+	if c.Method != "GET" && c.Method != "HEAD" {
 		return condNone
 	}
 	ir := c.GetHeader("If-Range")
