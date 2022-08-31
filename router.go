@@ -55,13 +55,7 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 	searchParts := parsePattern(path)
 	params := make(map[string]string)
 	var root *node
-	for i := range r.trees {
-		if r.trees[i].method != method {
-			continue
-		}
-		root = r.trees[i].root
-		break
-	}
+	root = r.trees.get(method)
 	if root == nil {
 		return nil, nil
 	}
