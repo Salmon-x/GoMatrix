@@ -13,6 +13,13 @@ type node struct {
 	isWild   bool    // 是否精确匹配，part 含有 : 或 * 时为true
 }
 
+type methodTree struct {
+	method string
+	root   *node
+}
+
+type methodTrees []methodTree
+
 // 第一个匹配成功的节点，用于插入
 func (n *node) matchChild(part string) *node {
 	for _, child := range n.children {
@@ -70,6 +77,15 @@ func (n *node) search(parts []string, height int) *node {
 		result := child.search(parts, height+1)
 		if result != nil {
 			return result
+		}
+	}
+	return nil
+}
+
+func (trees methodTrees) get(method string) *node {
+	for _, tree := range trees {
+		if tree.method == method {
+			return tree.root
 		}
 	}
 	return nil

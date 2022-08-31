@@ -109,6 +109,10 @@ func (group *RouterGroup) TRACE(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodTrace, pattern, handler)
 }
 
+func (group *RouterGroup) HEAD(pattern string, handler HandlerFunc) {
+	group.addRoute(http.MethodHead, pattern, handler)
+}
+
 // 定义启动http服务器的方法
 func (engine *Engine) Run() (err error) {
 	var listener net.Listener
