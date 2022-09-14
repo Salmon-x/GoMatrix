@@ -136,11 +136,13 @@ func (engine *Engine) Run() (err error) {
 // 根据分组不同挂载不同的中间件
 
 func (engine *Engine) addMiddlewares(c *Context) {
+	var handles HandlersChain
 	for _, group := range engine.groups {
 		if strings.HasPrefix(c.Path, group.prefix) {
-			c.middlewares = append(c.middlewares, group.middlewares...)
+			handles = append(handles, group.middlewares...)
 		}
 	}
+	c.middlewares = handles
 }
 
 // 实现Handler接口

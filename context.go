@@ -3,6 +3,7 @@ package GoMatrix
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 type H map[string]interface{}
 
 const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
+
+const abortIndex int8 = math.MaxInt8 / 2
 
 type Context struct {
 	// 原对象
@@ -146,4 +149,8 @@ func (c *Context) Next() {
 		c.middlewares[c.index](c)
 		c.index++
 	}
+}
+
+func (c *Context) Abort() {
+	c.index = abortIndex
 }
