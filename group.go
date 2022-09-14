@@ -4,13 +4,13 @@ import "log"
 
 type RouterGroup struct {
 	// 当前分组前缀
-	prefix      string
+	prefix string
 	// 分组挂载的中间件
-	middlewares []HandlerFunc
+	middlewares HandlersChain
 	// 父节点
-	parent      *RouterGroup
+	parent *RouterGroup
 	// 引擎统一化协调管理
-	engine      *Engine
+	engine *Engine
 }
 
 func (group *RouterGroup) Group(prefix string) *RouterGroup {
@@ -28,4 +28,10 @@ func (group *RouterGroup) addRoute(method string, comp string, handler HandlerFu
 	pattern := group.prefix + comp
 	log.Printf("Route %4s - %s", method, pattern)
 	group.engine.router.addRoute(method, pattern, handler)
+}
+
+// 在分组上挂载中间件
+
+func (group *RouterGroup) Use(middleware ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middleware...)
 }

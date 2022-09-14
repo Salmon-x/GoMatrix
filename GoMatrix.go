@@ -5,12 +5,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 
 // HandlerFunc定义使用的请求处理程序，替换成上下文
 
 type HandlerFunc func(c *Context)
+
+type HandlersChain []HandlerFunc
 
 // 引擎实现ServeHTTP接口
 
@@ -71,7 +74,7 @@ func SslNew(serverIp, serverPort string, maxConn int, crt, key string) *Engine {
 
 // 分配池：当池中没有对象，则新建一个初始对象
 func (engine *Engine) allocateContext() *Context {
-	return &Context{engine: engine}
+	return &Context{engine: engine, index: -1}
 }
 
 // GET定义添加GET请求的方法
@@ -117,7 +120,7 @@ func (group *RouterGroup) HEAD(pattern string, handler HandlerFunc) {
 func (engine *Engine) Run() (err error) {
 	var listener net.Listener
 	log.Printf("start server on host %s port:%s ,workers:%d\n", engine.serverIp, engine.serverPort, engine.maxConn)
-	listener, err = net.Listen("tcp", ":"+engine.serverPort)
+	listener, err = net.Listen("tcp", engine.serverIp+":"+engine.serverPort)
 	if err != nil {
 		return err
 	}
@@ -130,11 +133,22 @@ func (engine *Engine) Run() (err error) {
 	}
 }
 
+// 根据分组不同挂载不同的中间件
+
+func (engine *Engine) addMiddlewares(c *Context) {
+	for _, group := range engine.groups {
+		if strings.HasPrefix(c.Path, group.prefix) {
+			c.middlewares = append(c.middlewares, group.middlewares...)
+		}
+	}
+}
+
 // 实现Handler接口
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := engine.pool.Get().(*Context)
 	// 初始化上下文
 	c.newContext(w, req)
+	engine.addMiddlewares(c)
 	engine.router.handle(c)
 	engine.pool.Put(c)
 }

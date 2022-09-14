@@ -23,6 +23,10 @@ type Context struct {
 	// 响应信息
 	StatusCode int
 	engine     *Engine
+
+	// 中间件实现
+	index       int8
+	middlewares HandlersChain
 }
 
 func (c *Context) newContext(w http.ResponseWriter, req *http.Request) {
@@ -30,6 +34,7 @@ func (c *Context) newContext(w http.ResponseWriter, req *http.Request) {
 	c.Req = req
 	c.Path = req.URL.Path
 	c.Method = req.Method
+	c.index = -1
 }
 
 // Form参数
@@ -131,4 +136,14 @@ func (c *Context) Download(file string, filename ...string) {
 
 func (c *Context) GetHeader(key string) string {
 	return c.Req.Header.Get(key)
+}
+
+// 中间件的流转，主要通过index的移位来决定执行哪个middlewares中的中间件
+
+func (c *Context) Next() {
+	c.index++
+	for c.index < int8(len(c.middlewares)) {
+		c.middlewares[c.index](c)
+		c.index++
+	}
 }
