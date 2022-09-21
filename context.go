@@ -16,7 +16,6 @@ const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 const abortIndex int8 = math.MaxInt8 / 2
 
 type Context struct {
-	// 原对象
 	Writer http.ResponseWriter
 	Req    *http.Request
 	// 请求信息
@@ -73,7 +72,7 @@ func (c *Context) String(code int, format string, values ...interface{}) {
 	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
-func (c *Context) Fail(code int, err error) {
+func (c *Context) Fail(code int, err string) {
 	c.index = int8(len(c.middlewares))
 	c.JSON(code, H{"message": err})
 }
@@ -102,7 +101,7 @@ func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
 	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
-		c.Fail(500, err)
+		c.Fail(500, err.Error())
 	}
 }
 

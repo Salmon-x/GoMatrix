@@ -45,12 +45,9 @@ type Engine struct {
 
 // 初始化引擎
 
-func New(serverIp, serverPort string, maxConn int) *Engine {
+func New() *Engine {
 	engine := &Engine{
-		router:     newRouter(),
-		maxConn:    maxConn,
-		serverIp:   serverIp,
-		serverPort: serverPort,
+		router: newRouter(),
 	}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
@@ -60,40 +57,45 @@ func New(serverIp, serverPort string, maxConn int) *Engine {
 	return engine
 }
 
-func SslNew(serverIp, serverPort string, maxConn int, crt, key string) *Engine {
+// ssl支持开启，只要使用此方法制造引擎即可
+
+func SslNew(crt, key string) *Engine {
 	engine := &Engine{
-		router:     newRouter(),
-		maxConn:    maxConn,
-		serverIp:   serverIp,
-		serverPort: serverPort,
-		isSsl:      true,
-		crt:        crt,
-		key:        key,
+		router: newRouter(),
+		isSsl:  true,
+		crt:    crt,
+		key:    key,
 	}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
 	engine.pool.New = func() interface{} {
 		return engine.allocateContext()
 	}
+	return engine
+}
+
+// 默认引擎操作，引入错误恢复机制和日志中间件
+
+func Default() *Engine {
+	engine := New()
+	engine.Use(Logger(), Recovery())
 	return engine
 }
 
 // 分配池：当池中没有对象，则新建一个初始对象
+
 func (engine *Engine) allocateContext() *Context {
 	return &Context{engine: engine, index: -1}
 }
 
-// GET定义添加GET请求的方法
 func (group *RouterGroup) GET(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodGet, pattern, handler)
 }
 
-// 定义添加POST请求的方法
 func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodPost, pattern, handler)
 }
 
-// 定义添加PUT请求的方法
 func (group *RouterGroup) PUT(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodPut, pattern, handler)
 }
@@ -149,8 +151,10 @@ func (engine *Engine) LoadHTMLGlob(pattern string) {
 	engine.htmlTemplates = template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
 }
 
-// 定义启动http服务器的方法
-func (engine *Engine) Run() (err error) {
+func (engine *Engine) Run(serverIp, serverPort string, maxConn int) (err error) {
+	engine.serverIp = serverIp
+	engine.serverPort = serverPort
+	engine.maxConn = maxConn
 	var listener net.Listener
 	log.Printf("start server on host %s port:%s ,workers:%d\n", engine.serverIp, engine.serverPort, engine.maxConn)
 	listener, err = net.Listen("tcp", engine.serverIp+":"+engine.serverPort)
