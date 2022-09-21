@@ -73,6 +73,11 @@ func (c *Context) String(code int, format string, values ...interface{}) {
 	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
+func (c *Context) Fail(code int, err error) {
+	c.index = int8(len(c.middlewares))
+	c.JSON(code, H{"message": err})
+}
+
 // 构造json响应
 
 func (c *Context) JSON(code int, obj interface{}) {
@@ -93,10 +98,12 @@ func (c *Context) Data(code int, data []byte) {
 
 // 构造HTML响应
 
-func (c *Context) HTML(code int, html string) {
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err)
+	}
 }
 
 // 从上下文中读取param参数

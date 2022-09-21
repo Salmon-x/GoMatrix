@@ -5,8 +5,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
+	"text/template"
 )
 
 // HandlerFunc定义使用的请求处理程序，替换成上下文
@@ -35,6 +37,10 @@ type Engine struct {
 	isSsl bool
 	crt   string
 	key   string
+
+	// 模板
+	htmlTemplates *template.Template
+	funcMap       template.FuncMap
 }
 
 // 初始化引擎
@@ -114,6 +120,33 @@ func (group *RouterGroup) TRACE(pattern string, handler HandlerFunc) {
 
 func (group *RouterGroup) HEAD(pattern string, handler HandlerFunc) {
 	group.addRoute(http.MethodHead, pattern, handler)
+}
+
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(group.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+func (group *RouterGroup) Static(relativePath string, root string) {
+	handler := group.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	group.GET(urlPattern, handler)
+}
+
+func (engine *Engine) SetFuncMap(funcMap template.FuncMap) {
+	engine.funcMap = funcMap
+}
+
+func (engine *Engine) LoadHTMLGlob(pattern string) {
+	engine.htmlTemplates = template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
 }
 
 // 定义启动http服务器的方法
