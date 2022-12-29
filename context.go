@@ -22,6 +22,8 @@ type Context struct {
 	Path   string
 	Method string
 	Params map[string]string
+	// query参数
+	queryCache url.Values
 	// 响应信息
 	StatusCode int
 	engine     *Engine
@@ -48,7 +50,34 @@ func (c *Context) PostForm(key string) string {
 // Query参数
 
 func (c *Context) Query(key string) string {
-	return c.Req.URL.Query().Get(key)
+	// return c.Req.URL.Query().Get(key)
+	value, _ := c.GetQuery(key)
+	return value
+}
+
+func (c *Context) GetQuery(key string) (string, bool) {
+	if values, ok := c.GetQueryArray(key); ok {
+		return values[0], ok
+	}
+	return "", false
+}
+
+func (c *Context) GetQueryArray(key string) ([]string, bool) {
+	c.initQueryCache()
+	if values, ok := c.queryCache[key]; ok && len(values) > 0 {
+		return values, true
+	}
+	return []string{}, false
+}
+
+func (c *Context) initQueryCache() {
+	if c.queryCache == nil {
+		if c.Req != nil {
+			c.queryCache = c.Req.URL.Query()
+		} else {
+			c.queryCache = url.Values{}
+		}
+	}
 }
 
 // 构造响应状态码
@@ -101,7 +130,7 @@ func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
 	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
-		c.Fail(500, err.Error())
+		c.Fail(http.StatusInternalServerError, err.Error())
 	}
 }
 
