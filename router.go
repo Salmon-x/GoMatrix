@@ -1,6 +1,7 @@
 package GoMatrix
 
 import (
+	"github.com/Salmon-x/GoMatrix/utils"
 	"net/http"
 	"strings"
 )
@@ -36,8 +37,8 @@ func parsePattern(pattern string) []string {
 }
 
 func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
-	assert1(pattern[0] == '/', "path must begin with '/'")
-	assert1(method != "", "HTTP method can not be empty")
+	utils.Assert1(pattern[0] == '/', "path must begin with '/'")
+	utils.Assert1(method != "", "HTTP method can not be empty")
 
 	root := r.trees.get(method)
 	if root == nil {

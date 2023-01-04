@@ -1,6 +1,7 @@
 package GoMatrix
 
 import (
+	"github.com/Salmon-x/GoMatrix/response"
 	"golang.org/x/net/netutil"
 	"log"
 	"net"
@@ -39,7 +40,7 @@ type Engine struct {
 	key   string
 
 	// 模板
-	htmlTemplates *template.Template
+	htmlTemplates response.HTMLRender
 	funcMap       template.FuncMap
 }
 
@@ -148,7 +149,12 @@ func (engine *Engine) SetFuncMap(funcMap template.FuncMap) {
 }
 
 func (engine *Engine) LoadHTMLGlob(pattern string) {
-	engine.htmlTemplates = template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
+	templates := template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
+	engine.SetHTMLTemplate(templates)
+}
+
+func (engine *Engine) SetHTMLTemplate(templ *template.Template) {
+	engine.htmlTemplates = response.HTMLProduction{Template: templ}
 }
 
 func (engine *Engine) Run(serverIp, serverPort string, maxConn int) (err error) {

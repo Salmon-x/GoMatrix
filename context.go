@@ -1,8 +1,7 @@
 package GoMatrix
 
 import (
-	"encoding/json"
-	"fmt"
+	"github.com/Salmon-x/GoMatrix/response"
 	"math"
 	"net/http"
 	"net/url"
@@ -22,7 +21,7 @@ type Context struct {
 	Path   string
 	Method string
 	Params map[string]string
-	// query参数
+	// query参数缓存
 	queryCache url.Values
 	// 响应信息
 	StatusCode int
@@ -50,7 +49,6 @@ func (c *Context) PostForm(key string) string {
 // Query参数
 
 func (c *Context) Query(key string) string {
-	// return c.Req.URL.Query().Get(key)
 	value, _ := c.GetQuery(key)
 	return value
 }
@@ -96,9 +94,7 @@ func (c *Context) SetHeader(key string, value string) {
 // 构造string响应
 
 func (c *Context) String(code int, format string, values ...interface{}) {
-	c.SetHeader("Content-Type", "text/plain")
-	c.Status(code)
-	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
+	c.Render(code, response.String{Format: format, Value: values})
 }
 
 func (c *Context) Fail(code int, err string) {
@@ -109,29 +105,25 @@ func (c *Context) Fail(code int, err string) {
 // 构造json响应
 
 func (c *Context) JSON(code int, obj interface{}) {
-	c.SetHeader("Content-Type", "application/json")
-	c.Status(code)
-	encoder := json.NewEncoder(c.Writer)
-	if err := encoder.Encode(obj); err != nil {
-		http.Error(c.Writer, err.Error(), 500)
-	}
+	c.Render(code, response.JSON{Data: obj})
+}
+
+// 构造xml响应
+
+func (c *Context) XML(code int, obj interface{}) {
+	c.Render(code, response.XML{Data: obj})
 }
 
 // 构造文件响应
 
 func (c *Context) Data(code int, data []byte) {
-	c.Status(code)
-	c.Writer.Write(data)
+	c.Render(code, response.Data{Data: data})
 }
 
 // 构造HTML响应
 
 func (c *Context) HTML(code int, name string, data interface{}) {
-	c.SetHeader("Content-Type", "text/html")
-	c.Status(code)
-	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
-		c.Fail(http.StatusInternalServerError, err.Error())
-	}
+	c.Render(code, c.engine.htmlTemplates.Instance(name, data))
 }
 
 // 从上下文中读取param参数
@@ -188,4 +180,29 @@ func (c *Context) Next() {
 
 func (c *Context) Abort() {
 	c.index = abortIndex
+}
+
+func (c *Context) Render(code int, r response.Render) {
+	r.WriteContentType(c.Writer)
+	c.Status(code)
+	// 一丢丢小问题，不影响使用
+	//if !bodyAllowedForStatus(code) {
+	//	r.WriteContentType(c.Writer)
+	//	return
+	//}
+	if err := r.Render(c.Writer); err != nil {
+		panic(err)
+	}
+}
+
+func bodyAllowedForStatus(status int) bool {
+	switch {
+	case status >= 100 && status <= 199:
+		return false
+	case status == http.StatusNoContent:
+		return false
+	case status == http.StatusNotModified:
+		return false
+	}
+	return true
 }
